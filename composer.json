@@ -7,7 +7,7 @@
     "homepage": "https://github.com/ismaelsleifer/google-api",
     "type": "extension",
     "license": "BSD-3-Clause",
-    "version": "0.0.1",
+    "version": "0.0.3",
     "authors": [{
         "name": "Ismael Sleifer",
         "email": "ismaelsleifer@gmail.com",

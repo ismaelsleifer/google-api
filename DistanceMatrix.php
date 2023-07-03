@@ -96,8 +96,21 @@ class DistanceMatrix{
 
     /**
      * Especifica o sistema de unidades a ser usado ao exibir resultados.
+     * pode ser metric ou imperial
+     * metric - retorna o resultado em km
+     * imperial - retorna o resultado em milhas
      */
-    private $units;
+    private $units = 'metric';
+
+    /**
+     * Status da requisição
+     */
+    private $status;
+
+    /**
+     * Resultado da consulta
+     */
+    public $rows;
     
     public function __construct($key, $origins, $destinations, $type = self::TYPE_JSON, $language = 'pt-BR', $mode = self::MODE_DRIVING){
         $this->key = $key;
@@ -108,12 +121,13 @@ class DistanceMatrix{
         $this->mode = $mode;
     }
 
-    public function formatUrl(){
+    private function formatUrl(){
+        return $this->url . $this->type . '?origins=' . $this->getOrigins() . '&destinations=' . $this->getDestinations() .
+        '$language=' . $this->language . '&mode=' . $this->mode . '&units=' . $this->units . '&key=' . $this->key;
+    }
 
-        $url = $this->url . $this->type . '&origins=' . $this->getOrigins() . '&destinations=' . $this->getDestinations() .
-        '$language=' . $this->language . '&mode=' . $this->mode;
-
-        return $url;
+    public function setUnits($unit){
+        $this->units = $unit;
     }
 
     public function getOrigins(){
@@ -124,4 +138,57 @@ class DistanceMatrix{
         return urlencode($this->destinations);
     }
 
+    public function getStatus(){
+        return $this->status;
+    }
+
+    public function request(){
+        $cr = curl_init();
+        curl_setopt($cr, CURLOPT_URL, $this->formatUrl());
+        curl_setopt($cr, CURLOPT_RETURNTRANSFER, true);
+        $data = curl_exec($cr);
+        curl_close($cr);
+
+        $this->data = $data;
+        $this->populate($data);
+        return $this->status;
+    }
+
+    private function populate($data){
+        $name_row = 'rows';
+        $name_element = 'elements';
+        $name_origin_address = 'origin_addresses';
+        $name_destination_address = 'destination_addresses';
+        
+        if($this->type == self::TYPE_XML){
+            $name_row = 'row';
+            $name_element = 'element';
+            $name_origin_address = 'origin_address';
+            $name_destination_address = 'destination_address';
+
+            $data = simplexml_load_string($data);
+        }else{
+            $data = json_decode($data);
+        }
+        
+        $this->status = (string) $data->status;
+
+        $pos_origin = 0;
+        foreach($data->$name_row as $row){
+            $pos_destinaion = 0;
+            foreach($row->$name_element as $element){
+                $em = new ElementMatrix();
+                $em->origin = (string) $data->$name_origin_address[$pos_origin];
+                $em->destination = (string) $data->$name_destination_address[$pos_destinaion];
+                $em->distance_text = (string) $element->distance->text;
+                $em->distance_value = (int) $element->distance->value;
+                $em->duration_text = (string) $element->duration->text;
+                $em->duration_value = (int) $element->duration->value;
+                $em->status = (string) $element->status;
+                $this->rows[] = $em;
+                $pos_destinaion++;
+            }
+            $pos_origin++;
+        }
+    }
 }
